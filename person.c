@@ -4,13 +4,14 @@
 #include <string.h>
 #include <ctype.h>
 
-#include "mainCode.h"
+#include "main.h"
 #include "validation.h"
-#include "Person.h"
+#include "person.h"
 
-ReadStatus load_addresses_from_a_file(struct Person **list)
+ReadStatus load_addresses_from_a_file(struct Person **list, char *path)
 {
-	FILE *file = fopen(get_file_path(), "r");
+	path	   = get_file_path();
+	FILE *file = fopen(path, "r");
 
 	if (file == NULL) {
 		perror("Was unable to open the addresses.csv file");
@@ -38,14 +39,19 @@ ReadStatus load_addresses_from_a_file(struct Person **list)
 		if (is_valid_address(name, surname, email, phone_number) == VALID) {
 			struct Person *person = NULL;
 			person		      = create_new_person(name, surname, email, phone_number);
+
 			if (person == NULL) {
-				ret = FAILED_CALLOC;
+				ret = FAILED_MALLOC;
 				break;
 			}
-			add_new_address_at_the_end(person, list);
+
+			add_new_address(list, person, -1);
 		}
 	}
 	fclose(file);
+	if (path != NULL)
+		free(path);
+
 	return ret;
 }
 
@@ -68,9 +74,8 @@ char *get_file_path()
 struct Person *create_new_person(char *name, char *surname, char *email, char *phone_number)
 {
 	struct Person *person = NULL;
+	person		      = (struct Person *)malloc(sizeof(struct Person));
 
-	// Using Calloc to be able to find an empty struct
-	person = (struct Person *)calloc(1, sizeof(struct Person));
 	if (person == NULL) {
 		perror("Failed to allocate memory for a person object");
 		return NULL;
@@ -84,19 +89,43 @@ struct Person *create_new_person(char *name, char *surname, char *email, char *p
 	return person;
 }
 
-int add_new_address_at_the_end(struct Person *person, struct Person **list)
+int add_new_address(struct Person **list, struct Person *person, int position)
 {
-	struct Person *temp;
+	if (position == 1) {
+		person->next = *list;
+		*list	     = person;
 
-	temp = *list;
-	if (strlen(temp->name) == 0) {
-		*list = person;
-		return 0;
+	} else if (position > 1) {
+		struct Person *tmp = *list;
+
+		//Do position-2 jumps from the start
+		for (int i = 0; i < position - 2; i++) {
+			if (tmp->next != NULL)
+				tmp = (tmp)->next;
+			else
+				return 1;
+		}
+
+		// Make the person point at the selected position
+		person->next = tmp->next;
+		// Make the position before it point at the inserted person
+		tmp->next = person;
+
+	} else { // Put the new person at the end of the list
+		struct Person *temp;
+		temp = *list;
+
+		if (temp == NULL) {
+			*list = person;
+			return 0;
+		}
+
+		while (temp->next != NULL) {
+			temp = temp->next;
+		}
+
+		temp->next = person;
 	}
-	while (temp->next != NULL) {
-		temp = temp->next;
-	}
-	temp->next = person;
 	return 0;
 }
 
@@ -111,6 +140,13 @@ int display_addresses(struct Person *list)
 
 	int separator_line_width =
 		5 + NAME_LENGTH + 3 + SURNAME_LENGTH + 3 + EMAIL_LENGTH + 3 + PHONE_NUMBER_LENGTH + 5;
+
+	// Print "-----..." separator
+	printf("\n");
+	for (int i = 0; i < separator_line_width; i++) {
+		printf("-");
+	}
+	printf("\n");
 
 	// Print table header
 
@@ -145,92 +181,69 @@ int display_addresses(struct Person *list)
 
 	return 0;
 }
-int add_new_address_at_position(struct Person *person, struct Person **list, int position)
-{
-	if (position == 1) {
-		//Inserted Person points at the initial list start
-		person->next = *list;
-		//List starts at the new inserted person
-		*list = person;
-	} else {
-		struct Person *tmp = *list;
-		//Do position-2 jumps from the start
-		for (int i = 0; i < position - 2; i++) {
-			if (tmp->next != NULL)
-				tmp = (tmp)->next;
-			else
-				return 1;
-		}
-		// Make the person point at the selected position
-		person->next = tmp->next;
-		// Make the position before it point at the inserted person
-		tmp->next = person;
-	}
-	return 0;
-}
-int delete_address_at_position(struct Person **list, int position)
+
+/*
+ * If a position of -1 is passed the delete_address function will delete everything
+ */
+
+int delete_address(struct Person **list, int position)
 {
 	if (*list == NULL)
 		return 1;
 
-	if (position == 1) {
-		//Save the pointer to the second person, delete the first one and make the second to be the start of the list
-		struct Person *tmp = (*list)->next;
-		free(*list);
-		*list = tmp;
-	} else {
-		struct Person *tmp = *list;
-		//Do position-2 jumps from the start
-		for (int i = 0; i < position - 2; i++) {
-			if (tmp->next != NULL)
-				tmp = (tmp)->next;
-			else
-				return 1;
-		}
-		// Check if the next person (to be deleted) exists
-		if (tmp->next == NULL)
-			return 1;
+	struct Person *tmp		     = *list;
+	struct Person *next_after_tmp	     = NULL;
+	struct Person *before_the_delete_one = NULL;
+	int i				     = 1;
+	int is_specified_position_deleted    = 0;
 
-		// Save the pointer of the to be delete person
-		struct Person *to_be_deleted = tmp->next;
-		// Make the current person point to the one after to_bo_deleted
-		tmp->next = (tmp->next)->next;
-		// Delete to_be_delete Person
-		free(to_be_deleted);
+	// Iterate through the list
+	do {
+		next_after_tmp = tmp->next;
+		if (i == position - 1)
+			before_the_delete_one = tmp;
+		if (i == position || position == -1)
+			free(tmp);
+		if (i == position)
+			is_specified_position_deleted = 1;
+		tmp = next_after_tmp;
+		i++;
+	} while (tmp != NULL && !is_specified_position_deleted);
+
+	if (tmp == NULL && position == -1) {
+		*list = NULL;
 		return 0;
 	}
-	return 0;
-}
-int delete_all_addresses(struct Person **list)
-{
-	if (*list == NULL)
+
+	if (is_specified_position_deleted) {
+		before_the_delete_one->next = next_after_tmp;
 		return 0;
+	}
 
-	struct Person *tmp = NULL;
-
-	do {
-		tmp = (*list)->next;
-		free(*list);
-		*list = tmp;
-	} while (*list != NULL);
-	return 0;
+	return 1;
 }
+
+/*
+ * Both of the filtering functions, either by position or by an attribute do the
+ * filtering by hiding/unhiding certain addresses from the whole list
+ */
 
 int filter_addresses_by_position(struct Person *list, int position)
 {
-	// No need to check if list is NULL as that's done in hide function
-	if (hide_every_address(list) != 0)
+	// No need to check if list is NULL as that's done in change_hide... function
+	if (change_hide_var_of_addresses(list, HIDE) != 0)
 		return 1;
 
 	for (int i = 1; i < position; i++) {
 		if (list->next != NULL) {
-			list->is_hidden = 1;
-			list		= list->next;
+			list = list->next;
 		} else {
 			return 1;
 		}
 	}
+
 	list->is_hidden = 0;
+
 	return 0;
 }
 
@@ -286,24 +299,18 @@ int filter_addresses_by_attributes(struct Person *list, FilteringOptions filter,
 		return 1;
 }
 
-int hide_every_address(struct Person *list)
+int change_hide_var_of_addresses(struct Person *list, Conversion action)
 {
 	if (list == NULL)
 		return 1;
-	do {
-		list->is_hidden = 1;
-		list		= list->next;
-	} while (list != NULL);
-	return 0;
-}
 
-int unhide_every_address(struct Person *list)
-{
-	if (list == NULL)
-		return 1;
 	do {
-		list->is_hidden = 0;
-		list		= list->next;
+		if (action == HIDE)
+			list->is_hidden = 1;
+		else if (action == UNHIDE)
+			list->is_hidden = 0;
+		list = list->next;
 	} while (list != NULL);
+
 	return 0;
 }

@@ -1,7 +1,7 @@
 
 #include <string.h>
 #include "validation.h"
-#include "mainCode.h"
+#include "main.h"
 
 ValidationStatus is_valid_address(char *name, char *surname, char *email, char *phone_number)
 {
@@ -22,9 +22,9 @@ ValidationStatus is_valid_address(char *name, char *surname, char *email, char *
 
 ValidationStatus is_of_right_length(char *str, int len)
 {
-	if (str == NULL) {
+	if (str == NULL)
 		return WRONG_LENGTH;
-	}
+
 	// -1 to leave atleast one '\0'
 	if ((strlen(str) <= len - 1) && str != NULL)
 		return VALID;

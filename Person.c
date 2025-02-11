@@ -3,7 +3,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
-#include <regex.h>
 
 #include "mainCode.h"
 #include "validation.h"
@@ -108,35 +107,45 @@ int display_addresses(struct Person *list)
 
 	int position = 1;
 
-	// Dynamic Table printing
+	// Calculate "-----..." width
 
 	int separator_line_width =
 		5 + NAME_LENGTH + 3 + SURNAME_LENGTH + 3 + EMAIL_LENGTH + 3 + PHONE_NUMBER_LENGTH + 5;
 
+	// Print table header
+
 	printf("| No. | Name%*s | Surname%*s | Email%*s | Phone Number  |\n", NAME_LENGTH - 4, "",
 	       SURNAME_LENGTH - 7, "", EMAIL_LENGTH - 5, "");
 
+	// Print "-----..." separator
 	for (int i = 0; i < separator_line_width; i++) {
 		printf("-");
 	}
 	printf("\n");
 
+	// Print all unhidden addresses
+
 	do {
-		printf("| %-3d | %-*s | %-*s | %-*s | %-*s |\n", position, NAME_LENGTH, list->name,
-		       SURNAME_LENGTH, list->surname, EMAIL_LENGTH, list->email, PHONE_NUMBER_LENGTH,
-		       list->phone_number);
+		if (list->is_hidden == 0) {
+			printf("| %-3d | %-*s | %-*s | %-*s | %-*s |\n", position, NAME_LENGTH, list->name,
+			       SURNAME_LENGTH, list->surname, EMAIL_LENGTH, list->email, PHONE_NUMBER_LENGTH,
+			       list->phone_number);
+		}
+
 		list = list->next;
 		position++;
 	} while (list != NULL);
 
+	// Print table bottom marking "-----..." separator
+
 	for (int i = 0; i < separator_line_width; i++)
 		printf("-");
 
-	printf("\n");
+	printf("\n\n");
 
 	return 0;
 }
-int add_new_address_at_postion(struct Person *person, struct Person **list, int position)
+int add_new_address_at_position(struct Person *person, struct Person **list, int position)
 {
 	if (position == 1) {
 		//Inserted Person points at the initial list start
@@ -161,22 +170,140 @@ int add_new_address_at_postion(struct Person *person, struct Person **list, int 
 }
 int delete_address_at_position(struct Person **list, int position)
 {
+	if (*list == NULL)
+		return 1;
+
+	if (position == 1) {
+		//Save the pointer to the second person, delete the first one and make the second to be the start of the list
+		struct Person *tmp = (*list)->next;
+		free(*list);
+		*list = tmp;
+	} else {
+		struct Person *tmp = *list;
+		//Do position-2 jumps from the start
+		for (int i = 0; i < position - 2; i++) {
+			if (tmp->next != NULL)
+				tmp = (tmp)->next;
+			else
+				return 1;
+		}
+		// Check if the next person (to be deleted) exists
+		if (tmp->next == NULL)
+			return 1;
+
+		// Save the pointer of the to be delete person
+		struct Person *to_be_deleted = tmp->next;
+		// Make the current person point to the one after to_bo_deleted
+		tmp->next = (tmp->next)->next;
+		// Delete to_be_delete Person
+		free(to_be_deleted);
+		return 0;
+	}
+	return 0;
 }
 int delete_all_addresses(struct Person **list)
 {
+	if (*list == NULL)
+		return 0;
+
+	struct Person *tmp = NULL;
+
+	do {
+		tmp = (*list)->next;
+		free(*list);
+		*list = tmp;
+	} while (*list != NULL);
+	return 0;
 }
-struct Person *find_address_by_position(struct Person *list, int position)
+
+int filter_addresses_by_position(struct Person *list, int position)
 {
+	// No need to check if list is NULL as that's done in hide function
+	if (hide_every_address(list) != 0)
+		return 1;
+
+	for (int i = 1; i < position; i++) {
+		if (list->next != NULL) {
+			list->is_hidden = 1;
+			list		= list->next;
+		} else {
+			return 1;
+		}
+	}
+	list->is_hidden = 0;
+	return 0;
 }
-struct Person *find_address_by_name(struct Person *list, char *name)
+
+int filter_addresses_by_attributes(struct Person *list, FilteringOptions filter, char *matching_arg)
 {
+	if (list == NULL)
+		return 1;
+
+	int atleast_one_match_found = 0;
+
+	do {
+		if (list->is_hidden != 1) {
+			switch (filter) {
+			case FILTER_BY_NAME:
+				if (strcmp(list->name, matching_arg) == 0) {
+					list->is_hidden		= 0;
+					atleast_one_match_found = 1;
+				} else {
+					list->is_hidden = 1;
+				}
+				break;
+			case FILTER_BY_SURNAME:
+				if (strcmp(list->surname, matching_arg) == 0) {
+					list->is_hidden		= 0;
+					atleast_one_match_found = 1;
+				} else {
+					list->is_hidden = 1;
+				}
+				break;
+			case FILTER_BY_EMAIL:
+				if (strcmp(list->email, matching_arg) == 0) {
+					list->is_hidden		= 0;
+					atleast_one_match_found = 1;
+				} else {
+					list->is_hidden = 1;
+				}
+				break;
+			case FILTER_BY_PHONE_NUMBER:
+				if (strcmp(list->phone_number, matching_arg) == 0) {
+					list->is_hidden		= 0;
+					atleast_one_match_found = 1;
+				} else {
+					list->is_hidden = 1;
+				}
+				break;
+			}
+		}
+		list = list->next;
+	} while (list != NULL);
+	if (atleast_one_match_found)
+		return 0;
+	else
+		return 1;
 }
-struct Person *find_address_by_surname(struct Person *list, char *surname)
+
+int hide_every_address(struct Person *list)
 {
+	if (list == NULL)
+		return 1;
+	do {
+		list->is_hidden = 1;
+		list		= list->next;
+	} while (list != NULL);
+	return 0;
 }
-struct Person *find_address_by_email(struct Person *list, char *email)
+
+int unhide_every_address(struct Person *list)
 {
-}
-struct Person *find_address_by_phone_number(struct Person *list, char *phone_number)
-{
+	if (list == NULL)
+		return 1;
+	do {
+		list->is_hidden = 0;
+		list		= list->next;
+	} while (list != NULL);
+	return 0;
 }

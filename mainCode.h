@@ -1,12 +1,16 @@
 #ifndef MAIN_CODE_H
 #define MAIN_CODE_H
 
-#define NAME_LENGTH	      30
-#define SURNAME_LENGTH	      30
-#define EMAIL_LENGTH	      30
-#define PHONE_NUMBER_LENGTH   13
-#define ADDRESSES_FILE_NAME   "addresses.csv"
-#define ADDRESS_LINE_LENGTH   120
-#define DELIMETER_IN_CSV_FILE ","
+#define NAME_LENGTH		30
+#define SURNAME_LENGTH		30
+#define EMAIL_LENGTH		30
+#define PHONE_NUMBER_LENGTH	13
+#define COMMAND_LENGTH		25
+#define LONGEST_ARGUMENT_LENGTH 150
+#define ADDRESSES_FILE_NAME	"addresses.csv"
+#define ADDRESS_LINE_LENGTH	120
+#define DELIMETER_IN_CSV_FILE	","
+
+typedef enum { OK, INVALID_COMMAND, INVALID_ARGUMENT } ReadCommandResult;
 
 #endif

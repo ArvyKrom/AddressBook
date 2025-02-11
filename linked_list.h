@@ -1,5 +1,5 @@
-#ifndef PERSON_H
-#define PERSON_H
+#ifndef LINKED_LIST_H
+#define LINKED_LIST_H
 
 #include "main.h"
 
@@ -16,12 +16,12 @@ struct Person {
 	struct Person *next;
 };
 
-ReadStatus load_addresses_from_a_file(struct Person **list, char *path);
+ReadStatus load_addresses_from_a_file(struct Person **list);
 int display_addresses(struct Person *list);
 int add_new_address(struct Person **list, struct Person *person, int position);
 struct Person *create_new_person(char *name, char *surname, char *email, char *phone_number);
 int delete_address(struct Person **list, int position);
-char *get_file_path();
+int get_file_path(char *path);
 int filter_addresses_by_attributes(struct Person *list, FilteringOptions filter, char *matching_arg);
 int filter_addresses_by_position(struct Person *list, int position);
 int change_hide_var_of_addresses(struct Person *list, Conversion action);

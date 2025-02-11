@@ -6,11 +6,12 @@
 
 #include "main.h"
 #include "validation.h"
-#include "person.h"
+#include "linked_list.h"
 
-ReadStatus load_addresses_from_a_file(struct Person **list, char *path)
+ReadStatus load_addresses_from_a_file(struct Person **list)
 {
-	path	   = get_file_path();
+	char path[250] = { 0 };
+	get_file_path(path);
 	FILE *file = fopen(path, "r");
 
 	if (file == NULL) {
@@ -36,39 +37,37 @@ ReadStatus load_addresses_from_a_file(struct Person **list, char *path)
 		email	     = strtok(NULL, DELIMETER_IN_CSV_FILE);
 		phone_number = strtok(NULL, "\n");
 
-		if (is_valid_address(name, surname, email, phone_number) == VALID) {
-			struct Person *person = NULL;
-			person		      = create_new_person(name, surname, email, phone_number);
+		if (is_valid_address(name, surname, email, phone_number) != VALID)
+			continue;
 
-			if (person == NULL) {
-				ret = FAILED_MALLOC;
-				break;
-			}
+		struct Person *person = NULL;
+		person		      = create_new_person(name, surname, email, phone_number);
 
-			add_new_address(list, person, -1);
+		if (person == NULL) {
+			ret = FAILED_MALLOC;
+			break;
 		}
+
+		add_new_address(list, person, -1);
 	}
 	fclose(file);
-	if (path != NULL)
-		free(path);
 
 	return ret;
 }
 
-char *get_file_path()
+int get_file_path(char *path)
 {
-	int path_length = strlen(getenv("HOME")) + 1 + strlen(ADDRESSES_FILE_NAME);
-	char *path	= NULL;
-	path		= (char *)malloc(sizeof(char) * (path_length + 1));
+	if (strlen(getenv("HOME")) + 1 + strlen(ADDRESSES_FILE_NAME) < 250) {
+		strcat(path, getenv("HOME"));
+		strcat(path, "/");
+		strcat(path, ADDRESSES_FILE_NAME);
+	}
 
-	if (path == NULL)
-		return NULL;
+	else {
+		return 1;
+	}
 
-	strcat(path, getenv("HOME"));
-	strcat(path, "/");
-	strcat(path, ADDRESSES_FILE_NAME);
-
-	return path;
+	return 0;
 }
 
 struct Person *create_new_person(char *name, char *surname, char *email, char *phone_number)
@@ -76,10 +75,8 @@ struct Person *create_new_person(char *name, char *surname, char *email, char *p
 	struct Person *person = NULL;
 	person		      = (struct Person *)malloc(sizeof(struct Person));
 
-	if (person == NULL) {
-		perror("Failed to allocate memory for a person object");
+	if (person == NULL)
 		return NULL;
-	}
 
 	strncpy(person->name, name, NAME_LENGTH - 1);
 	strncpy(person->surname, surname, SURNAME_LENGTH - 1);
@@ -94,6 +91,7 @@ int add_new_address(struct Person **list, struct Person *person, int position)
 	if (position == 1) {
 		person->next = *list;
 		*list	     = person;
+		return 0;
 
 	} else if (position > 1) {
 		struct Person *tmp = *list;
@@ -111,21 +109,22 @@ int add_new_address(struct Person **list, struct Person *person, int position)
 		// Make the position before it point at the inserted person
 		tmp->next = person;
 
-	} else { // Put the new person at the end of the list
-		struct Person *temp;
-		temp = *list;
-
-		if (temp == NULL) {
-			*list = person;
-			return 0;
-		}
-
-		while (temp->next != NULL) {
-			temp = temp->next;
-		}
-
-		temp->next = person;
+		return 0;
 	}
+	// If the position is -1 tut the new person at the end of the list
+	struct Person *temp;
+	temp = *list;
+
+	if (temp == NULL) {
+		*list = person;
+		return 0;
+	}
+
+	while (temp->next != NULL) {
+		temp = temp->next;
+	}
+
+	temp->next = person;
 	return 0;
 }
 
@@ -161,17 +160,20 @@ int display_addresses(struct Person *list)
 
 	// Print all unhidden addresses
 
-	do {
-		if (list->is_hidden == 0) {
-			printf("| %-3d | %-*s | %-*s | %-*s | %-*s |\n", position, NAME_LENGTH, list->name,
-			       SURNAME_LENGTH, list->surname, EMAIL_LENGTH, list->email, PHONE_NUMBER_LENGTH,
-			       list->phone_number);
+	while (list != NULL) {
+		if (list->is_hidden == 1) {
+			list = list->next;
+			position++;
+			continue;
 		}
+
+		printf("| %-3d | %-*s | %-*s | %-*s | %-*s |\n", position, NAME_LENGTH, list->name,
+		       SURNAME_LENGTH, list->surname, EMAIL_LENGTH, list->email, PHONE_NUMBER_LENGTH,
+		       list->phone_number);
 
 		list = list->next;
 		position++;
-	} while (list != NULL);
-
+	}
 	// Print table bottom marking "-----..." separator
 
 	for (int i = 0; i < separator_line_width; i++)
@@ -198,7 +200,7 @@ int delete_address(struct Person **list, int position)
 	int is_specified_position_deleted    = 0;
 
 	// Iterate through the list
-	do {
+	while (tmp != NULL && !is_specified_position_deleted) {
 		next_after_tmp = tmp->next;
 		if (i == position - 1)
 			before_the_delete_one = tmp;
@@ -208,7 +210,7 @@ int delete_address(struct Person **list, int position)
 			is_specified_position_deleted = 1;
 		tmp = next_after_tmp;
 		i++;
-	} while (tmp != NULL && !is_specified_position_deleted);
+	}
 
 	if (tmp == NULL && position == -1) {
 		*list = NULL;
@@ -235,11 +237,10 @@ int filter_addresses_by_position(struct Person *list, int position)
 		return 1;
 
 	for (int i = 1; i < position; i++) {
-		if (list->next != NULL) {
-			list = list->next;
-		} else {
+		if (list->next == NULL)
 			return 1;
-		}
+
+		list = list->next;
 	}
 
 	list->is_hidden = 0;
@@ -253,50 +254,47 @@ int filter_addresses_by_attributes(struct Person *list, FilteringOptions filter,
 		return 1;
 
 	int atleast_one_match_found = 0;
+	int are_strings_matching    = 0;
 
-	do {
-		if (list->is_hidden != 1) {
-			switch (filter) {
-			case FILTER_BY_NAME:
-				if (strcmp(list->name, matching_arg) == 0) {
-					list->is_hidden		= 0;
-					atleast_one_match_found = 1;
-				} else {
-					list->is_hidden = 1;
-				}
-				break;
-			case FILTER_BY_SURNAME:
-				if (strcmp(list->surname, matching_arg) == 0) {
-					list->is_hidden		= 0;
-					atleast_one_match_found = 1;
-				} else {
-					list->is_hidden = 1;
-				}
-				break;
-			case FILTER_BY_EMAIL:
-				if (strcmp(list->email, matching_arg) == 0) {
-					list->is_hidden		= 0;
-					atleast_one_match_found = 1;
-				} else {
-					list->is_hidden = 1;
-				}
-				break;
-			case FILTER_BY_PHONE_NUMBER:
-				if (strcmp(list->phone_number, matching_arg) == 0) {
-					list->is_hidden		= 0;
-					atleast_one_match_found = 1;
-				} else {
-					list->is_hidden = 1;
-				}
-				break;
-			}
+	while (list != NULL) {
+		if (list->is_hidden == 1) {
+			list = list->next;
+			continue;
 		}
-		list = list->next;
-	} while (list != NULL);
+
+		switch (filter) {
+		case FILTER_BY_NAME:
+			are_strings_matching = (strcmp(list->name, matching_arg) == 0);
+			break;
+
+		case FILTER_BY_SURNAME:
+			are_strings_matching = (strcmp(list->surname, matching_arg) == 0);
+			break;
+
+		case FILTER_BY_EMAIL:
+			are_strings_matching = (strcmp(list->email, matching_arg) == 0);
+			break;
+
+		case FILTER_BY_PHONE_NUMBER:
+			are_strings_matching = (strcmp(list->phone_number, matching_arg) == 0);
+			break;
+		}
+
+		if (are_strings_matching == 1) {
+			list->is_hidden		= 0;
+			atleast_one_match_found = 1;
+			list			= list->next;
+			continue;
+		}
+
+		list->is_hidden = 1;
+		list		= list->next;
+	}
+
 	if (atleast_one_match_found)
 		return 0;
-	else
-		return 1;
+
+	return 1;
 }
 
 int change_hide_var_of_addresses(struct Person *list, Conversion action)
@@ -304,13 +302,13 @@ int change_hide_var_of_addresses(struct Person *list, Conversion action)
 	if (list == NULL)
 		return 1;
 
-	do {
+	while (list != NULL) {
 		if (action == HIDE)
 			list->is_hidden = 1;
 		else if (action == UNHIDE)
 			list->is_hidden = 0;
 		list = list->next;
-	} while (list != NULL);
+	}
 
 	return 0;
 }

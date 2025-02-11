@@ -11,6 +11,4 @@
 #define ADDRESS_LINE_LENGTH	120
 #define DELIMETER_IN_CSV_FILE	","
 
-typedef enum { OK, INVALID_COMMAND, INVALID_ARGUMENT } ReadCommandResult;
-
 #endif

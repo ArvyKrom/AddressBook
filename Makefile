@@ -1,26 +1,31 @@
-CC = cc
-RM = rm -f
-#To make the output file "lighter" omit the CFLAGS
-CFLAGS = -Wall -g
+CFLAGS = -Wall
 
-#Collect all .c files
-SRC = $(wildcard *.c)
-#Get the names of the object files (*.o)
+.PHONY: all clean
+
+SRC = $(wildcard src/*.c)
 OBJ = $(SRC:.c=.o)
+LIB_NAME = $(shell make --no-print-directory -C lib echo_libname)
+LIB_VERSION = $(shell make --no-print-directory -C lib echo_version)
 
 all: AddressBook
 
-AddressBook: $(OBJ)
-	$(CC) $(CFLAGS) $(OBJ) -o AddressBook
+AddressBook: $(OBJ) lib/lib$(LIB_NAME).so.$(LIB_VERSION)
+	 $(CC) $(OBJ) $(CFLAGS) -Wl,-rpath=./lib -L./lib -l$(LIB_NAME) -o AddressBook
 
-# Compile file by file if their .o file does not exist or timestamp is too recent
-%.o : %.c
-	$(CC) $(CFLAGS) -c $< -o $@
+$(OBJ): $(SRC)
+	make --no-print-directory -C src
 
-# If a "clean" file is created this will stay as a target
-.PHONY: clean
+lib/lib$(LIB_NAME).so.$(LIB_VERSION): lib/$(LIB_NAME).c
+	make --no-print-directory -C lib
+
 clean:
-	$(RM) *.o
 	$(RM) AddressBook
+	make --no-print-directory -C src clean
+	make --no-print-directory -C lib clean
+	
+
+
+	
+
 
 
